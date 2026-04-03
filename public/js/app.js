@@ -1,0 +1,215 @@
+// Auth Check
+const token = localStorage.getItem('rtvts_token');
+const username = localStorage.getItem('rtvts_user');
+
+if (!token) {
+    window.location.href = '/login.html';
+}
+
+document.getElementById('username-display').innerText = username || 'User';
+
+document.getElementById('logout-btn').onclick = () => {
+    localStorage.removeItem('rtvts_token');
+    localStorage.removeItem('rtvts_user');
+    window.location.href = '/login.html';
+};
+
+// Leaflet Map Initialization
+const map = L.map('map', {
+    zoomControl: false,
+    attributionControl: false
+}).setView([0, 0], 2);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+const socket = io({
+    auth: { token }
+});
+
+const markers = {};
+const historyPolylines = {};
+let myVehicleId = 'V-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+let isTracking = false;
+let watchId = null;
+
+// UI Elements
+const dot = document.querySelector('.dot');
+const label = document.querySelector('.label');
+const vehicleCountEl = document.getElementById('vehicle-count');
+const startBtn = document.getElementById('start-tracking');
+const typeSelect = document.getElementById('vehicle-type');
+const latEl = document.getElementById('curr-lat');
+const lngEl = document.getElementById('curr-lng');
+const vehicleSelect = document.getElementById('vehicle-select');
+const showHistoryBtn = document.getElementById('show-history');
+const clearHistoryBtn = document.getElementById('clear-history');
+const aiContent = document.getElementById('ai-content');
+
+// Icons (re-using previous icons logic)
+const icons = {
+    car: L.divIcon({
+        className: '',
+        html: `<div style="
+            width: 20px;
+            height: 20px;
+            background: #4f46e5;
+            border-radius: 50%;
+            border: 2px solid white;
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    }),
+    truck: L.divIcon({
+        className: '',
+        html: `<div style="
+            width: 20px;
+            height: 20px;
+            background: #f59e0b;
+            border-radius: 50%;
+            border: 2px solid white;
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    }),
+    bike: L.divIcon({
+        className: '',
+        html: `<div style="
+            width: 20px;
+            height: 20px;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid white;
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    })
+};
+// Socket Handlers
+socket.on('connect', () => { dot.className = 'dot online'; label.innerText = 'Connected'; });
+socket.on('disconnect', () => { dot.className = 'dot offline'; label.innerText = 'Disconnected'; });
+socket.on('connect_error', (err) => { window.location.href = '/login.html'; });
+
+socket.on('initialData', (vehicles) => {
+    vehicles.forEach(updateMarker);
+    updateVehicleCount();
+    updateVehicleList();
+});
+
+socket.on('locationUpdate', (vehicle) => {
+    updateMarker(vehicle);
+    updateVehicleCount();
+    updateVehicleList();
+});
+
+socket.on('vehicleRemoved', (vehicleId) => {
+    if (markers[vehicleId]) {
+        map.removeLayer(markers[vehicleId]);
+        delete markers[vehicleId];
+        updateVehicleCount();
+        updateVehicleList();
+    }
+});
+
+function updateMarker(vehicle) {
+    const { vehicleId, type, latitude, longitude } = vehicle;
+    if (markers[vehicleId]) {
+        markers[vehicleId].setLatLng([latitude, longitude]);
+    } else {
+        const marker = L.marker([latitude, longitude], { icon: icons[type] || icons.car })
+            .addTo(map)
+            .bindPopup(`<b>Vehicle:</b> ${vehicleId}<br><b>Type:</b> ${type}`);
+        markers[vehicleId] = marker;
+    }
+}
+
+function updateVehicleCount() {
+    vehicleCountEl.innerText = Object.keys(markers).length;
+}
+
+function updateVehicleList() {
+    const currentVal = vehicleSelect.value;
+    vehicleSelect.innerHTML = '<option value="">Select vehicle...</option>';
+    Object.keys(markers).forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.innerText = id;
+        vehicleSelect.appendChild(opt);
+    });
+    vehicleSelect.value = currentVal;
+}
+
+// History Handling
+showHistoryBtn.onclick = async () => {
+    const vehicleId = vehicleSelect.value;
+    if (!vehicleId) return alert('Select a vehicle first');
+
+    aiContent.innerText = "Generating AI Summary...";
+    
+    try {
+        const res = await fetch(`/api/history/${vehicleId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const history = await res.json();
+
+        if (history.length < 2) {
+            aiContent.innerText = "Not enough data for this vehicle yet.";
+            return;
+        }
+
+        // Draw Polyline
+        if (historyPolylines[vehicleId]) map.removeLayer(historyPolylines[vehicleId]);
+        
+        const latlngs = history.map(h => [h.latitude, h.longitude]);
+        const polyline = L.polyline(latlngs, { color: '#818cf8', weight: 4, opacity: 0.6, dashArray: '10, 10' }).addTo(map);
+        historyPolylines[vehicleId] = polyline;
+        map.fitBounds(polyline.getBounds());
+
+        // Mock AI Summary (Simulating LLM Integration from syllabus Unit VI)
+        const distance = (latlngs.length * 0.5).toFixed(1); // Mock calculation
+        aiContent.innerHTML = `
+            <strong>Trip Overview:</strong><br>
+            Vehicle ${vehicleId} has covered approx. ${distance} km. 
+            The route suggests heavy activity in multiple sectors. 
+            Steady movement observed at average speeds.
+        `;
+
+    } catch (err) {
+        aiContent.innerText = "Error fetching history.";
+    }
+};
+
+clearHistoryBtn.onclick = () => {
+    Object.values(historyPolylines).forEach(p => map.removeLayer(p));
+    aiContent.innerText = "Select a vehicle and click 'View Route' for AI insights.";
+};
+
+// Geolocation Handling
+startBtn.addEventListener('click', () => isTracking ? stopTracking() : startTracking());
+
+function startTracking() {
+    if (!navigator.geolocation) return alert("GPS not supported");
+    startBtn.innerText = "Stop My GPS";
+    startBtn.style.background = "var(--danger)";
+    isTracking = true;
+
+    watchId = navigator.geolocation.watchPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        latEl.innerText = latitude.toFixed(4);
+        lngEl.innerText = longitude.toFixed(4);
+        if (!markers[myVehicleId]) map.setView([latitude, longitude], 15);
+        socket.emit('updateLocation', { vehicleId: myVehicleId, type: typeSelect.value, latitude, longitude });
+    }, (err) => stopTracking(), { enableHighAccuracy: true });
+}
+
+function stopTracking() {
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    startBtn.innerText = "Start My GPS";
+    startBtn.style.background = "var(--primary)";
+    isTracking = false;
+    watchId = null;
+}

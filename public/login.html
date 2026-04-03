@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RTVTS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            text-align: center;
+        }
+        .auth-card h1 { margin-bottom: 0.5rem; }
+        .auth-card p { color: var(--text-sub); margin-bottom: 2rem; }
+        .form-group { text-align: left; margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-sub); }
+        .form-group input { 
+            width: 100%; padding: 0.75rem; border-radius: 0.5rem; 
+            background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); 
+            color: #fff; outline: none; transition: 0.3s;
+        }
+        .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 8px rgba(79, 70, 229, 0.3); }
+        .error-msg { color: var(--danger); font-size: 0.8rem; margin-top: 1rem; display: none; }
+        .toggle-auth { margin-top: 1.5rem; color: var(--text-sub); font-size: 0.85rem; }
+        .toggle-auth a { color: var(--primary); text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="auth-card glass">
+        <h1 id="auth-title">Welcome Back</h1>
+        <p id="auth-subtitle">Login to access the tracking dashboard</p>
+
+        <form id="auth-form">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" required placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn primary" style="width: 100%;">Sign In</button>
+        </form>
+
+        <div id="error-box" class="error-msg"></div>
+
+        <div class="toggle-auth">
+            <span id="toggle-text">Don't have an account?</span>
+            <a href="#" id="toggle-link">Sign Up</a>
+        </div>
+    </div>
+
+    <script>
+        const authForm = document.getElementById('auth-form');
+        const authTitle = document.getElementById('auth-title');
+        const authSubtitle = document.getElementById('auth-subtitle');
+        const toggleLink = document.getElementById('toggle-link');
+        const toggleText = document.getElementById('toggle-text');
+        const errorBox = document.getElementById('error-box');
+
+        let isLogin = true;
+
+        toggleLink.onclick = (e) => {
+            e.preventDefault();
+            isLogin = !isLogin;
+            authTitle.innerText = isLogin ? 'Welcome Back' : 'Create Account';
+            authSubtitle.innerText = isLogin ? 'Login to access the tracking dashboard' : 'Join RTVTS to start tracking';
+            toggleText.innerText = isLogin ? "Don't have an account?" : "Already have an account?";
+            toggleLink.innerText = isLogin ? 'Sign Up' : 'Sign In';
+            errorBox.style.display = 'none';
+        }
+
+        authForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    if (isLogin) {
+                        localStorage.setItem('rtvts_token', data.token);
+                        localStorage.setItem('rtvts_user', data.username);
+                        window.location.href = '/';
+                    } else {
+                        alert('Registration successful! Please login.');
+                        location.reload();
+                    }
+                } else {
+                    errorBox.innerText = data.error || data.message || 'Error occurred';
+                    errorBox.style.display = 'block';
+                }
+            } catch (err) {
+                errorBox.innerText = 'Server error';
+                errorBox.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
