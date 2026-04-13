@@ -344,3 +344,40 @@ footer p {
     border-top: 1px solid rgba(255,255,255,0.1);
     padding-top: 0.5rem;
 }
+
+/* Mobile Menu Button */
+#mobile-menu-btn {
+    display: none;
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1005;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+#mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+    #mobile-menu-btn {
+        display: block;
+    }
+    
+    .dashboard {
+        position: absolute;
+        left: -320px;
+        transition: left 0.3s ease;
+        height: 100vh;
+        z-index: 1004;
+    }
+    
+    .dashboard.open {
+        left: 0;
+    }
+}

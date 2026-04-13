@@ -144,7 +144,7 @@ io.on('connection', (socket) => {
             }
             
             // Filter realistic speeds (e.g., prevent impossible > 1000 km/h jumps)
-            if (speed > 1000 || speed < 1) {
+            if (speed > 1000) {
                 console.log(`Ignored unrealistic speed jump for ${vehicleId}: ${speed} km/h`);
                 return;
             }

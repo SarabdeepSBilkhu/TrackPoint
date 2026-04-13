@@ -48,6 +48,19 @@ const vehicleSelect = document.getElementById('vehicle-select');
 const showHistoryBtn = document.getElementById('show-history');
 const clearHistoryBtn = document.getElementById('clear-history');
 
+// Mobile Menu
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+const dashboard = document.getElementById('dashboard');
+
+if (mobileMenuBtn && dashboard) {
+    mobileMenuBtn.onclick = () => dashboard.classList.toggle('open');
+    map.on('click', () => {
+        if (window.innerWidth <= 768) {
+            dashboard.classList.remove('open');
+        }
+    });
+}
+
 // Icons
 const icons = {
     car: L.divIcon({
