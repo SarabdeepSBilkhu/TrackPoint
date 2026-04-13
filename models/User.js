@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
     }
 });
 
-// Hash password before saving - use synchronous bcrypt to avoid Node.js 24 async issues
+// Hash password before saving
 userSchema.pre('save', function() {
     if (!this.isModified('password')) return;
 

@@ -2,10 +2,9 @@
 const token = localStorage.getItem('rtvts_token');
 const username = localStorage.getItem('rtvts_user');
 
-if (!token) {
+if(!token){
     window.location.href = '/login.html';
 }
-
 document.getElementById('username-display').innerText = username || 'User';
 
 document.getElementById('logout-btn').onclick = () => {
@@ -48,9 +47,8 @@ const lngEl = document.getElementById('curr-lng');
 const vehicleSelect = document.getElementById('vehicle-select');
 const showHistoryBtn = document.getElementById('show-history');
 const clearHistoryBtn = document.getElementById('clear-history');
-const aiContent = document.getElementById('ai-content');
 
-// Icons (re-using previous icons logic)
+// Icons
 const icons = {
     car: L.divIcon({
         className: '',
@@ -89,6 +87,7 @@ const icons = {
         iconAnchor: [10, 10]
     })
 };
+
 // Socket Handlers
 socket.on('connect', () => { dot.className = 'dot online'; label.innerText = 'Connected'; });
 socket.on('disconnect', () => { dot.className = 'dot offline'; label.innerText = 'Disconnected'; });
@@ -115,22 +114,55 @@ socket.on('vehicleRemoved', (vehicleId) => {
     }
 });
 
+function showToast(msg, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast glass toast-${type}`;
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
 function updateMarker(vehicle) {
-    const { vehicleId, type, latitude, longitude } = vehicle;
+    const { vehicleId, type, latitude, longitude, speed, status } = vehicle;
+    
+    const isOffline = status === 'offline';
+    const markerIcon = icons[type] || icons.car;
+    
     if (markers[vehicleId]) {
-        markers[vehicleId].setLatLng([latitude, longitude]);
-    } else {
-        const marker = L.marker([latitude, longitude], { icon: icons[type] || icons.car })
+        const marker = markers[vehicleId];
+        marker.status = status; // Store status on marker object
+        marker.setLatLng([latitude, longitude]);
+        if (marker.speedTooltip) {
+            marker.setTooltipContent(isOffline ? 'Offline' : `${speed || 0} km/h`);
+        }
+        marker.getElement()?.style.setProperty('filter', isOffline ? 'grayscale(1) opacity(0.5)' : 'none');
+    } 
+    else {
+        const marker = L.marker([latitude, longitude], { icon: markerIcon })
             .addTo(map)
-            .bindPopup(`<b>Vehicle:</b> ${vehicleId}<br><b>Type:</b> ${type}`);
+            .bindPopup(`<b>Vehicle:</b> ${vehicleId}<br><b>Status:</b> ${status || 'online'}`);
+        
+        marker.status = status; // Store status
+        
+        // Speed Bubble
+        marker.bindTooltip(isOffline ? 'Offline' : `${speed || 0} km/h`, { 
+            permanent: true, 
+            direction: 'top', 
+            className: 'speed-bubble',
+            offset: [0, -10]
+        }).openTooltip();
+        
+        marker.speedTooltip = true;
         markers[vehicleId] = marker;
+
+        setTimeout(() => {
+            marker.getElement()?.style.setProperty('filter', isOffline ? 'grayscale(1) opacity(0.5)' : 'none');
+        }, 100);
     }
 }
-
 function updateVehicleCount() {
-    vehicleCountEl.innerText = Object.keys(markers).length;
+    const activeCount = Object.values(markers).filter(m => m.status !== 'offline').length;
+    vehicleCountEl.innerText = activeCount;
 }
-
 function updateVehicleList() {
     const currentVal = vehicleSelect.value;
     vehicleSelect.innerHTML = '<option value="">Select vehicle...</option>';
@@ -146,9 +178,8 @@ function updateVehicleList() {
 // History Handling
 showHistoryBtn.onclick = async () => {
     const vehicleId = vehicleSelect.value;
-    if (!vehicleId) return alert('Select a vehicle first');
-
-    aiContent.innerText = "Generating AI Summary...";
+    if (!vehicleId) 
+        return alert('Select a vehicle first');
     
     try {
         const res = await fetch(`/api/history/${vehicleId}`, {
@@ -157,35 +188,27 @@ showHistoryBtn.onclick = async () => {
         const history = await res.json();
 
         if (history.length < 2) {
-            aiContent.innerText = "Not enough data for this vehicle yet.";
+            showToast('Not enough data for this vehicle yet.', 'warning');
             return;
         }
 
         // Draw Polyline
-        if (historyPolylines[vehicleId]) map.removeLayer(historyPolylines[vehicleId]);
+        if (historyPolylines[vehicleId]) 
+            map.removeLayer(historyPolylines[vehicleId]);
         
         const latlngs = history.map(h => [h.latitude, h.longitude]);
         const polyline = L.polyline(latlngs, { color: '#818cf8', weight: 4, opacity: 0.6, dashArray: '10, 10' }).addTo(map);
         historyPolylines[vehicleId] = polyline;
         map.fitBounds(polyline.getBounds());
 
-        // Mock AI Summary (Simulating LLM Integration from syllabus Unit VI)
-        const distance = (latlngs.length * 0.5).toFixed(1); // Mock calculation
-        aiContent.innerHTML = `
-            <strong>Trip Overview:</strong><br>
-            Vehicle ${vehicleId} has covered approx. ${distance} km. 
-            The route suggests heavy activity in multiple sectors. 
-            Steady movement observed at average speeds.
-        `;
-
-    } catch (err) {
-        aiContent.innerText = "Error fetching history.";
+    } 
+    catch (err) {
+        showToast("Error fetching history.", "danger");
     }
 };
 
 clearHistoryBtn.onclick = () => {
     Object.values(historyPolylines).forEach(p => map.removeLayer(p));
-    aiContent.innerText = "Select a vehicle and click 'View Route' for AI insights.";
 };
 
 // Geolocation Handling
@@ -198,18 +221,43 @@ function startTracking() {
     isTracking = true;
 
     watchId = navigator.geolocation.watchPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        
+        // Ignore low-accuracy readings (e.g., cell-tower triangulation which causes "jumping")
+        if (accuracy > 100) 
+            return;
+
         latEl.innerText = latitude.toFixed(4);
         lngEl.innerText = longitude.toFixed(4);
-        if (!markers[myVehicleId]) map.setView([latitude, longitude], 15);
-        socket.emit('updateLocation', { vehicleId: myVehicleId, type: typeSelect.value, latitude, longitude });
+        
+        if (!markers[myVehicleId]) 
+            map.setView([latitude, longitude], 15);
+        
+        socket.emit(
+            'updateLocation', 
+            { 
+                vehicleId: myVehicleId, 
+                type: typeSelect.value, 
+                latitude, 
+                longitude 
+            }
+        );
     }, (err) => stopTracking(), { enableHighAccuracy: true });
 }
 
 function stopTracking() {
-    if (watchId) navigator.geolocation.clearWatch(watchId);
+    if (watchId) 
+        navigator.geolocation.clearWatch(watchId);
+
     startBtn.innerText = "Start My GPS";
     startBtn.style.background = "var(--primary)";
     isTracking = false;
     watchId = null;
+    
+    socket.emit(
+        'stopTracking', 
+        { 
+            vehicleId: myVehicleId 
+        }
+    );
 }

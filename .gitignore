@@ -34,5 +34,5 @@ build/
 .idea/
 
 # Optional: temp files
-tmp/
-temp/syllabus.txt
+syllabus.txt
+CONCEPTS.md

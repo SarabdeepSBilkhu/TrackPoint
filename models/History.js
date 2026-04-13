@@ -16,7 +16,8 @@ const historySchema = new mongoose.Schema({
     },
     timestamp: {
         type: Date,
-        default: Date.now
+        default: Date.now,
+        expires: '24h' // Automatically delete records older than 24 hours
     }
 });
 

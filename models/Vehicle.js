@@ -19,6 +19,16 @@ const vehicleSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    status: {
+        type: String,
+        enum: ['online', 'offline'],
+        default: 'online'
+    },
+    speed: {
+        type: Number,
+        default: 0
+    },
+
     lastUpdated: {
         type: Date,
         default: Date.now

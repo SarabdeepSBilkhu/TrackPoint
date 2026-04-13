@@ -288,3 +288,59 @@ footer p {
     background-color: #0f172a;
     color: #f8fafc;
 }
+
+/* Speed Bubble Styling */
+.speed-bubble {
+    background: var(--primary) !important;
+    border: 2px solid #fff !important;
+    color: #fff !important;
+    border-radius: 20px !important;
+    padding: 2px 8px !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+}
+
+.speed-bubble::before {
+    border-top-color: var(--primary) !important;
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    z-index: 2000;
+    font-weight: 600;
+    animation: slide-in 0.3s ease-out;
+}
+
+.toast-danger {
+    background: rgba(239, 68, 68, 0.9);
+    border: 1px solid #ef4444;
+    color: #fff;
+}
+
+@keyframes slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* AI Results styling */
+.ai-text {
+    font-size: 0.85rem;
+    color: #fff;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+.ai-meta {
+    font-size: 0.65rem;
+    color: var(--text-sub);
+    margin-top: 0.75rem;
+    text-align: right;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 0.5rem;
+}
