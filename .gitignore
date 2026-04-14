@@ -36,3 +36,4 @@ build/
 # Optional: temp files
 syllabus.txt
 CONCEPTS.md
+/generated/prisma

@@ -1,19 +1,18 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { PrismaClient } = require('@prisma/client');
 
-const Vehicle = require('./models/Vehicle');
-const User = require('./models/User');
-const History = require('./models/History');
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+const prisma = new PrismaClient();
 
 // Middleware
 app.use(express.json());
@@ -24,10 +23,20 @@ app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
+// History cleanup interval (every 1 hour)
+setInterval(async () => {
+    try {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const deleted = await prisma.history.deleteMany({
+            where: { timestamp: { lt: twentyFourHoursAgo } }
+        });
+        if (deleted.count > 0) {
+            console.log(`Cleaned up ${deleted.count} old history records`);
+        }
+    } catch (err) {
+        console.error('Error cleaning up history:', err);
+    }
+}, 60 * 60 * 1000);
 
 // Authenticate Middleware
 const authenticate = (req, res, next) => {
@@ -47,8 +56,13 @@ const authenticate = (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const user = new User({ username, password });
-        await user.save();
+        const salt = bcrypt.genSaltSync(10);
+        const hashedPassword = bcrypt.hashSync(password, salt);
+        
+        await prisma.user.create({
+            data: { username, password: hashedPassword }
+        });
+        
         res.status(201).json({ message: 'User registered' });
     } 
     catch (err) {
@@ -60,11 +74,13 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const user = await User.findOne({ username });
-        if (!user || !user.comparePassword(password)) {
+        const user = await prisma.user.findUnique({ where: { username } });
+        
+        if (!user || !bcrypt.compareSync(password, user.password)) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-        const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        
+        const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1d' });
         res.json({ token, username: user.username });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
@@ -75,7 +91,11 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/history/:vehicleId', authenticate, async (req, res) => {
     try {
         const { vehicleId } = req.params;
-        const history = await History.find({ vehicleId }).sort({ timestamp: 1 }).limit(500);
+        const history = await prisma.history.findMany({ 
+            where: { vehicleId },
+            orderBy: { timestamp: 'asc' },
+            take: 500
+        });
         res.json(history);
     } 
     catch (err) {
@@ -123,7 +143,7 @@ io.on('connection', (socket) => {
     // Track which vehicleIds this socket owns
     socket.vehicleIds = new Set();
 
-    Vehicle.find().then(vehicles => socket.emit('initialData', vehicles));
+    prisma.vehicle.findMany().then(vehicles => socket.emit('initialData', vehicles));
 
     socket.on('updateLocation', async (data) => {
         const { vehicleId, type, latitude, longitude } = data;
@@ -151,27 +171,34 @@ io.on('connection', (socket) => {
 
             lastPosition[vehicleId] = { lat: latitude, lng: longitude, time: now };
 
-            const vehicle = await Vehicle.findOneAndUpdate(
-                { vehicleId },
-                { 
-                    vehicleId, 
-                    type, 
-                    latitude, 
-                    longitude, 
-                    speed: speed.toFixed(1),
-                    status: 'online', 
-                    lastUpdated: new Date() 
+            const vehicle = await prisma.vehicle.upsert({
+                where: { vehicleId },
+                update: {
+                    type,
+                    latitude,
+                    longitude,
+                    speed: parseFloat(speed.toFixed(1)),
+                    status: 'online',
+                    lastUpdated: new Date()
                 },
-                { upsert: true, returnDocument: 'after' }
-            );
-            
-
+                create: {
+                    vehicleId,
+                    type,
+                    latitude,
+                    longitude,
+                    speed: parseFloat(speed.toFixed(1)),
+                    status: 'online',
+                    lastUpdated: new Date()
+                }
+            });
 
             io.emit('locationUpdate', vehicle);
 
             // Throttle history logging
             if (!lastEntryTime[vehicleId] || now - lastEntryTime[vehicleId] > 5000) {
-                await new History({ vehicleId, latitude, longitude }).save();
+                await prisma.history.create({
+                    data: { vehicleId, latitude, longitude }
+                });
                 lastEntryTime[vehicleId] = now;
             }
 
@@ -184,14 +211,20 @@ io.on('connection', (socket) => {
     socket.on('stopTracking', async (data) => {
         const { vehicleId } = data;
         try {
-            const vehicle = await Vehicle.findOneAndUpdate({ vehicleId }, { status: 'offline' }, { returnDocument: 'after' });
+            const vehicle = await prisma.vehicle.update({
+                where: { vehicleId },
+                data: { status: 'offline' }
+            });
             if (vehicle) {
                 io.emit('locationUpdate', vehicle);
                 console.log(`User stopped tracking: ${vehicleId}`);
             }
         } 
         catch (err) {
-            console.error('Error in stopTracking:', err);
+            // Ignore error if vehicle doesn't exist
+            if (err.code !== 'P2025') {
+                console.error('Error in stopTracking:', err);
+            }
         }
     });
 
@@ -201,14 +234,19 @@ io.on('connection', (socket) => {
         for (const vehicleId of socket.vehicleIds) {
             try {
                 // Persistent behavior: mark as offline instead of deleting
-                const vehicle = await Vehicle.findOneAndUpdate({ vehicleId }, { status: 'offline' }, { returnDocument: 'after' });
+                const vehicle = await prisma.vehicle.update({
+                    where: { vehicleId },
+                    data: { status: 'offline' }
+                });
                 if (vehicle) {
                     io.emit('locationUpdate', vehicle);
                     console.log(`Marked vehicle offline: ${vehicleId}`);
                 }
             } 
             catch (err) {
-                console.error('Error marking vehicle offline:', err);
+                if (err.code !== 'P2025') {
+                    console.error('Error marking vehicle offline:', err);
+                }
             }
         }
     });
