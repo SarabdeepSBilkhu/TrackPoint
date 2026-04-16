@@ -102,8 +102,12 @@ const icons = {
 };
 
 // Socket Handlers
-socket.on('connect', () => { dot.className = 'dot online'; label.innerText = 'Connected'; });
-socket.on('disconnect', () => { dot.className = 'dot offline'; label.innerText = 'Disconnected'; });
+socket.on('connect', () => { 
+    dot.className = 'dot online'; label.innerText = 'Connected'; 
+});
+socket.on('disconnect', () => { 
+    dot.className = 'dot offline'; label.innerText = 'Disconnected'; 
+});
 socket.on('connect_error', (err) => { window.location.href = '/login.html'; });
 
 socket.on('initialData', (vehicles) => {

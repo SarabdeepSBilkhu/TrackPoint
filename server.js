@@ -38,6 +38,16 @@ setInterval(async () => {
     }
 }, 60 * 60 * 1000);
 
+// Keep database awake (every 5 minutes)
+setInterval(async () => {
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        console.log("DB ping successful");
+    } catch (err) {
+        console.error("DB ping failed:", err.message);
+    }
+}, 5 * 60 * 1000);  
+
 // Authenticate Middleware
 const authenticate = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
@@ -80,7 +90,11 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
         
-        const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign(
+            { id: user.id, username: user.username }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '1d' }
+        );
         res.json({ token, username: user.username });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
