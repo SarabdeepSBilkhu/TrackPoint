@@ -156,6 +156,12 @@ io.on('connection', (socket) => {
 
     // Track which vehicleIds this socket owns
     socket.vehicleIds = new Set();
+    socket.on('registerVehicle', (vehicleId) => {
+        // Only register this vehicleId for socket-level cleanup on disconnect.
+        // Do NOT mark the vehicle online here — status becomes 'online' only
+        // when real location data arrives via 'updateLocation'.
+        socket.vehicleIds.add(vehicleId);
+    });
 
     prisma.vehicle.findMany().then(vehicles => socket.emit('initialData', vehicles));
 

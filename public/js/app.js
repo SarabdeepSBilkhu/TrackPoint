@@ -32,9 +32,16 @@ const socket = io({
 
 const markers = {};
 const historyPolylines = {};
-let myVehicleId = 'V-' + Math.random().toString(36).substr(2, 6).toUpperCase();
 let isTracking = false;
+let lastPointTime = null;
+let pointCount = 0;
 let watchId = null;
+let myVehicleId = localStorage.getItem('vehicleId');
+
+if (!myVehicleId) {
+    myVehicleId = 'V-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    localStorage.setItem('vehicleId', myVehicleId);
+}
 
 // UI Elements
 const dot = document.querySelector('.dot');
@@ -103,7 +110,9 @@ const icons = {
 
 // Socket Handlers
 socket.on('connect', () => { 
-    dot.className = 'dot online'; label.innerText = 'Connected'; 
+    dot.className = 'dot online'; 
+    label.innerText = 'Connected'; 
+    socket.emit('registerVehicle', myVehicleId);
 });
 socket.on('disconnect', () => { 
     dot.className = 'dot offline'; label.innerText = 'Disconnected'; 
@@ -146,12 +155,30 @@ function updateMarker(vehicle) {
     
     if (markers[vehicleId]) {
         const marker = markers[vehicleId];
-        marker.status = status; // Store status on marker object
+        if (markers[vehicleId]) {
+            const marker = markers[vehicleId];
+
+            marker.status = status; // MUST be here
+
+            marker.setLatLng([latitude, longitude]);
+
+            const el = marker.getElement();
+            if (el) {
+                el.style.filter = status === 'offline'
+                    ? 'grayscale(1) opacity(0.5)'
+                    : 'none';
+            }
+        }
         marker.setLatLng([latitude, longitude]);
         if (marker.speedTooltip) {
             marker.setTooltipContent(isOffline ? 'Offline' : `${speed || 0} km/h`);
         }
-        marker.getElement()?.style.setProperty('filter', isOffline ? 'grayscale(1) opacity(0.5)' : 'none');
+        setTimeout(() => {
+            const el = marker.getElement();
+            if (el) {
+                el.style.filter = isOffline ? 'grayscale(1) opacity(0.5)' : 'none';
+            }
+        }, 0);
     } 
     else {
         const marker = L.marker([latitude, longitude], { icon: markerIcon })
@@ -233,33 +260,54 @@ startBtn.addEventListener('click', () => isTracking ? stopTracking() : startTrac
 
 function startTracking() {
     if (!navigator.geolocation) return alert("GPS not supported");
+
+    console.log("Initializing GPS... Fetching location...");
+
     startBtn.innerText = "Stop My GPS";
     startBtn.style.background = "var(--danger)";
     isTracking = true;
 
     watchId = navigator.geolocation.watchPosition((pos) => {
+        const now = Date.now();
+
+        if (lastPointTime === null) {
+            console.log("First location point received");
+        } else {
+            const timeDiff = now - lastPointTime;
+            console.log(`Time since last point: ${timeDiff} ms`);
+        }
+
+        lastPointTime = now;
+        pointCount++;
+
         const { latitude, longitude, accuracy } = pos.coords;
-        
-        // Ignore low-accuracy readings (e.g., cell-tower triangulation which causes "jumping")
-        if (accuracy > 100) 
-            return;
+
+        console.log(`Point #${pointCount}`);
+        console.log("Accuracy:", accuracy);
+
+        // Keep your accuracy filter (optional)
+        // if (accuracy > 300) {
+        //     console.log("Low accuracy reading ignored:", accuracy);
+        //     return;
+        // }
 
         latEl.innerText = latitude.toFixed(4);
         lngEl.innerText = longitude.toFixed(4);
-        
+
         if (!markers[myVehicleId]) 
             map.setView([latitude, longitude], 15);
-        
-        socket.emit(
-            'updateLocation', 
-            { 
-                vehicleId: myVehicleId, 
-                type: typeSelect.value, 
-                latitude, 
-                longitude 
-            }
-        );
-    }, (err) => stopTracking(), { enableHighAccuracy: true });
+
+        socket.emit('updateLocation', {
+            vehicleId: myVehicleId,
+            type: typeSelect.value,
+            latitude,
+            longitude
+        });
+
+    }, (err) => {
+        console.error("Error fetching location:", err.message);
+        stopTracking();
+    }, { enableHighAccuracy: true });
 }
 
 function stopTracking() {
@@ -273,8 +321,14 @@ function stopTracking() {
     
     socket.emit(
         'stopTracking', 
-        { 
-            vehicleId: myVehicleId 
-        }
+        { vehicleId: myVehicleId }
     );
 }
+
+window.addEventListener("beforeunload", () => {
+    if (isTracking) {
+        socket.emit('stopTracking', {
+            vehicleId: myVehicleId
+        });
+    }
+});
