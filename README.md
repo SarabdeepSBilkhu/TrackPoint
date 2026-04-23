@@ -49,6 +49,12 @@ A complete full-stack Real-Time Vehicle Tracking System that allows fleet manage
 5. **Access the App**
    Open your browser and navigate to `http://localhost:3000`
 
+## ⚙️ Running in Development Mode
+To run the app with automatic restart on changes:
+```bash
+npm run dev
+```
+
 ## 🚗 Running the Demo Simulator 
 If you are presenting the project and want to simulate dummy vehicles driving around:
 1. Make sure your server is running (`npm run start`).
