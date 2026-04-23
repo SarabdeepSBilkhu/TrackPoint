@@ -23,7 +23,7 @@ body {
     overflow: hidden; /* Prevent body scroll */
 }
 
-h1, h2, h3 {
+h1, h3 {
     font-family: 'Outfit', sans-serif;
 }
 
@@ -142,7 +142,7 @@ h1, h2, h3 {
 }
 
 /* Controls */
-.small-text { font-size: 0.75rem; color: var(--text-sub); margin-bottom: 0.75rem; }
+
 
 .btn-group {
     display: flex;
@@ -269,12 +269,6 @@ footer p {
 .btn.danger-outline { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .btn.danger-outline:hover { background: rgba(239, 68, 68, 0.1); }
 
-#ai-content {
-    line-height: 1.5;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-}
 
 /* Leaflet override */
 .leaflet-container {
@@ -328,22 +322,7 @@ footer p {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* AI Results styling */
-.ai-text {
-    font-size: 0.85rem;
-    color: #fff;
-    margin-top: 0.5rem;
-    font-style: italic;
-}
 
-.ai-meta {
-    font-size: 0.65rem;
-    color: var(--text-sub);
-    margin-top: 0.75rem;
-    text-align: right;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    padding-top: 0.5rem;
-}
 
 /* Mobile Menu Button */
 #mobile-menu-btn {
