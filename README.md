@@ -4,62 +4,122 @@
 ![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)
 ![Express.js](https://img.shields.io/badge/Express.js-Framework-lightgrey.svg)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-Real%20Time-black.svg)
-![MongoDB](https://img.shields.io/badge/MongoDB-NoSQL-47A248.svg)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Relational-blue.svg)
 
-A complete full-stack Real-Time Vehicle Tracking System that allows fleet managers or individuals to monitor vehicles dynamically on a map interface.
+A full-stack Real-Time Vehicle Tracking System that enables users to monitor vehicle movement dynamically on an interactive map.
+
+---
 
 ## 🚀 Features
 
-- **Real-Time GPS Tracking:** Uses HTML5 Geolocation API and WebSockets to track live device movements without refreshing the page.
-- **Interactive Map:** Powered by Leaflet.js and OpenStreetMap maps tailored with a custom dark mode palette.
-- **User Authentication:** JSON Web Tokens (JWT) implemented for secure user registration and login.
-- **Historical Playback:** Records every movement parameter to MongoDB. Users can dynamically draw historical tracking polyline routes on the map to review past trips.
-- **Presentation Simulation:** Built-in tracker simulator script for demonstrating system features locally.
+- **Real-Time GPS Tracking**  
+  Uses the Geolocation API and WebSockets to track live movement without page refresh.
+
+- **Interactive Map Visualization**  
+  Built with Leaflet.js and OpenStreetMap for dynamic marker updates and route display.
+
+- **User Authentication**  
+  Secure login and registration using JWT-based authentication.
+
+- **Historical Tracking**  
+  Stores location data in PostgreSQL and visualizes past routes using polylines.
+
+- **Performance Monitoring**  
+  Measures latency, update intervals, and GPS accuracy.
+
+---
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** HTML5, CSS3 (Vanilla utilities), JavaScript (ES6+), Leaflet.js
-- **Backend:** Node.js, Express.js
-- **Database:** MongoDB via Mongoose ORM
-- **WebSockets:** Socket.io
+- **Frontend:** HTML5, CSS3, JavaScript (ES6+), Leaflet.js  
+- **Backend:** Node.js, Express.js  
+- **Database:** PostgreSQL with Prisma ORM  
+- **Real-Time Communication:** Socket.IO  
+
+---
 
 ## 📦 Installation & Setup
 
-1. **Clone the repository**
+### 1. Clone Repository
+```bash
+git clone <your-repo-url>
+cd RTVTS
+````
 
-2. **Install Node Dependencies**
-   ```bash
-   npm install
-   ```
+### 2. Install Dependencies
 
-3. **Environment Setup**
-   Create a `.env` file at the root combining these keys:
-   ```env
-   PORT=3000
-   MONGODB_URI=your_mongo_database_url
-   JWT_SECRET=your_super_secret_key
-   ```
+```bash
+npm install
+```
 
-4. **Run the Application**
-   For standard start:
-   ```bash
-   npm run start
-   ```
+### 3. Environment Setup
 
-5. **Access the App**
-   Open your browser and navigate to `http://localhost:3000`
+Create a `.env` file:
 
-## ⚙️ Running in Development Mode
-To run the app with automatic restart on changes:
+```env
+PORT=3000
+DATABASE_URL=your_postgresql_connection_url
+JWT_SECRET=your_super_secret_key
+```
+
+### 4. Run Database Migrations
+
+```bash
+npx prisma migrate dev
+```
+
+### 5. Start Application
+
+```bash
+npm run start
+```
+
+### 6. Access Application
+
+```
+http://localhost:3000
+```
+
+---
+
+## ⚙️ Development Mode
+
 ```bash
 npm run dev
 ```
 
-## 🚗 Running the Demo Simulator 
-If you are presenting the project and want to simulate dummy vehicles driving around:
-1. Make sure your server is running (`npm run start`).
-2. In a separate terminal, execute:
-   ```bash
-   node simulate.js
-   ```
-3. Look at your dashboard to observe vehicles dynamically moving!
+Runs server with auto-restart (nodemon).
+
+---
+
+## 🚗 Demo / Testing
+
+* Open multiple browser tabs or devices
+* Start tracking on each
+* Observe real-time updates on the map
+
+---
+
+## 🧠 System Overview
+
+* Browser captures GPS location
+* Sends data via Socket.IO
+* Backend processes and stores data
+* Broadcasts updates to all clients
+* Frontend updates markers in real time
+
+---
+
+## ⚠️ Notes
+
+* GPS accuracy depends on environment
+* First location fetch may be delayed
+* Real-time updates depend on device sensors
+
+---
+
+## ✅ Status
+
+Active development – functional real-time tracking system implemented.
+
+```
