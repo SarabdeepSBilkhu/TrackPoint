@@ -121,5 +121,3 @@ Runs server with auto-restart (nodemon).
 ## ✅ Status
 
 Active development – functional real-time tracking system implemented.
-
-```
