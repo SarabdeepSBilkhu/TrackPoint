@@ -8,8 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "build": "prisma generate"
+    "dev": "node server.js"
   },
   "keywords": [],
   "author": "",
